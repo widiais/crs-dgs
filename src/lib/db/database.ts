@@ -412,9 +412,18 @@ class FirestoreDatabase {
 
   async deleteMedia(id: string): Promise<boolean> {
     try {
-      // TODO: In production, also remove media assignments from all displays
-      // This would require querying all clients and their displays
+      // Remove media assignments from all displays first
+      const clients = await this.getClients();
       
+      for (const client of clients) {
+        const displays = await this.getDisplaysByClientId(client.id);
+        
+        for (const display of displays) {
+          await this.removeMediaFromDisplay(client.id, display.id, id);
+        }
+      }
+      
+      // Delete the media itself
       await deleteDoc(doc(this.mediaCollection, id));
       return true;
     } catch (error) {

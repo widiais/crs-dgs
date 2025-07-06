@@ -194,7 +194,16 @@ export default function ClientDetailPage() {
   };
 
   const handleDeleteClient = async () => {
-    if (!confirm('Apakah Anda yakin ingin menghapus client ini? Semua display yang terkait juga akan dihapus.')) {
+    const confirmMessage = `Apakah Anda yakin ingin menghapus client "${client?.name}"?
+
+⚠️ PERHATIAN: Ini akan menghapus:
+• Client "${client?.name}"
+• Semua ${displays.length} display yang terkait
+• Semua media assignments dari display tersebut
+
+Tindakan ini tidak dapat dibatalkan!`;
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -207,6 +216,8 @@ export default function ClientDetailPage() {
       });
 
       if (response.ok) {
+        // Show success message before redirecting
+        alert(`Client "${client?.name}" dan semua data terkait berhasil dihapus.`);
         router.push('/admin');
       } else {
         const errorData = await response.json();
@@ -322,6 +333,11 @@ export default function ClientDetailPage() {
                     <span className="text-sm text-gray-500">
                       {displays.length} display{displays.length !== 1 ? 's' : ''}
                     </span>
+                  </div>
+                  <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                    <p className="text-xs text-blue-700">
+                      ℹ️ Semua display adalah bagian dari client ini. Menghapus client akan menghapus semua display yang terkait.
+                    </p>
                   </div>
                 </div>
               )}
