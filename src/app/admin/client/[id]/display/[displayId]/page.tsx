@@ -346,6 +346,19 @@ Ketik "DELETE" untuk konfirmasi:`;
   const assignedMediaIds = display.mediaItems?.map(media => media.id) || [];
   const availableMedia = allMedia.filter(media => !assignedMediaIds.includes(media.id));
 
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'Head Office':
+        return 'bg-blue-100 text-blue-800';
+      case 'Store':
+        return 'bg-green-100 text-green-800';
+      case 'Promotion':
+        return 'bg-purple-100 text-purple-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   const getMediaIcon = (type: string) => {
     if (type.startsWith('image/')) {
       return <Image className="w-4 h-4" />;
@@ -562,95 +575,212 @@ Ketik "DELETE" untuk konfirmasi:`;
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Assigned Media</h2>
           {display.mediaItems && display.mediaItems.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {display.mediaItems.map((media) => (
-                <Card key={media.id} className="relative">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      {getMediaIcon(media.type)}
-                      <CardTitle className="text-base truncate">{media.name}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="aspect-video bg-gray-100 rounded-md overflow-hidden">
-                        {media.type.startsWith('image/') ? (
-                          <img 
-                            src={media.url} 
-                            alt={media.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <video 
-                            src={media.url}
-                            className="w-full h-full object-cover"
-                            muted
-                            preload="metadata"
-                          />
-                        )}
+            <>
+              {/* Table view for desktop */}
+              <div className="hidden md:block">
+                <div className="bg-white rounded-lg border overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Media</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Preview</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Category</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Duration</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {display.mediaItems.map((media, index) => (
+                        <tr key={media.id} className={`border-t ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              {getMediaIcon(media.type)}
+                              <div>
+                                <div className="font-medium text-gray-900">{media.name}</div>
+                                <div className="text-sm text-gray-500">{media.type.toUpperCase()}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="w-16 h-12 bg-gray-100 rounded overflow-hidden">
+                              {media.type.startsWith('image/') ? (
+                                <img 
+                                  src={media.url} 
+                                  alt={media.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <video 
+                                  src={media.url}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  preload="metadata"
+                                />
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(media.category)}`}>
+                              {media.category}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {editingDuration === media.id ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="300"
+                                  value={newDuration}
+                                  onChange={(e) => setNewDuration(e.target.value)}
+                                  className="w-20 h-8"
+                                />
+                                <span className="text-sm">s</span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => startEditingDuration(media.id, media.duration)}
+                                className="hover:text-blue-600 cursor-pointer flex items-center gap-1"
+                                title="Click to edit duration"
+                              >
+                                {media.duration}s 
+                                <Edit className="w-3 h-3 text-blue-500" />
+                              </button>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex gap-2">
+                              {editingDuration === media.id ? (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => saveDuration(media.id)}
+                                    className="text-green-600 hover:text-green-700"
+                                  >
+                                    <Save className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={cancelEditingDuration}
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => handleRemoveMedia(media.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Card view for mobile */}
+              <div className="md:hidden space-y-4">
+                {display.mediaItems.map((media) => (
+                  <Card key={media.id} className="relative">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2">
+                        {getMediaIcon(media.type)}
+                        <CardTitle className="text-base truncate">{media.name}</CardTitle>
                       </div>
-                      <div className="flex justify-between items-center text-xs text-gray-500 mb-2">
-                        <span>{media.category}</span>
-                        {editingDuration === media.id ? (
-                          <div className="flex items-center gap-1">
-                            <Input
-                              type="number"
-                              min="1"
-                              max="300"
-                              value={newDuration}
-                              onChange={(e) => setNewDuration(e.target.value)}
-                              className="w-16 h-6 text-xs"
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="aspect-video bg-gray-100 rounded-md overflow-hidden">
+                          {media.type.startsWith('image/') ? (
+                            <img 
+                              src={media.url} 
+                              alt={media.name}
+                              className="w-full h-full object-cover"
                             />
-                            <span className="text-xs">s</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => startEditingDuration(media.id, media.duration)}
-                            className="hover:text-blue-600 cursor-pointer flex items-center gap-1"
-                            title="Click to edit duration"
-                          >
-                            {media.duration}s 
-                            <span className="text-blue-500">✏️</span>
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        {editingDuration === media.id ? (
-                          <>
+                          ) : (
+                            <video 
+                              src={media.url}
+                              className="w-full h-full object-cover"
+                              muted
+                              preload="metadata"
+                            />
+                          )}
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-gray-500 mb-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(media.category)}`}>
+                            {media.category}
+                          </span>
+                          {editingDuration === media.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                min="1"
+                                max="300"
+                                value={newDuration}
+                                onChange={(e) => setNewDuration(e.target.value)}
+                                className="w-16 h-6 text-xs"
+                              />
+                              <span className="text-xs">s</span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startEditingDuration(media.id, media.duration)}
+                              className="hover:text-blue-600 cursor-pointer flex items-center gap-1"
+                              title="Click to edit duration"
+                            >
+                              {media.duration}s 
+                              <Edit className="w-3 h-3 text-blue-500" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {editingDuration === media.id ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => saveDuration(media.id)}
+                                className="flex-1 text-green-600 hover:text-green-700"
+                              >
+                                <Save className="w-4 h-4 mr-1" />
+                                Save
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={cancelEditingDuration}
+                                className="flex-1"
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          ) : (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => saveDuration(media.id)}
-                              className="flex-1 text-green-600 hover:text-green-700"
+                              className="w-full text-red-600 hover:text-red-700"
+                              onClick={() => handleRemoveMedia(media.id)}
                             >
-                              ✓ Save
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Remove
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={cancelEditingDuration}
-                              className="flex-1"
-                            >
-                              Cancel
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full text-red-600 hover:text-red-700"
-                            onClick={() => handleRemoveMedia(media.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Remove
-                          </Button>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           ) : (
             <Card>
               <CardContent className="p-8 text-center">
@@ -668,51 +798,106 @@ Ketik "DELETE" untuk konfirmasi:`;
         <div>
           <h2 className="text-xl font-semibold mb-4">Available Media</h2>
           {availableMedia.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {availableMedia.map((media) => (
-                <Card key={media.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      {getMediaIcon(media.type)}
-                      <CardTitle className="text-base truncate">{media.name}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="aspect-video bg-gray-100 rounded-md overflow-hidden">
-                        {media.type.startsWith('image/') ? (
-                          <img 
-                            src={media.url} 
-                            alt={media.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <video 
-                            src={media.url}
-                            className="w-full h-full object-cover"
-                            muted
-                            preload="metadata"
-                          />
-                        )}
+            <>
+              {/* Table view for desktop */}
+              <div className="hidden md:block">
+                <div className="bg-white rounded-lg border overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Name</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Media Category</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Duration</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {availableMedia.map((media, index) => (
+                        <tr key={media.id} className={`border-t ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              {getMediaIcon(media.type)}
+                              <div>
+                                <div className="font-medium text-gray-900">{media.name}</div>
+                                <div className="text-sm text-gray-500">{media.type.toUpperCase()}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(media.category)}`}>
+                              {media.category}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="text-gray-900 font-medium">{media.duration}s</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAssignMedia(media.id)}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Assign to Display
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Card view for mobile */}
+              <div className="md:hidden space-y-4">
+                {availableMedia.map((media) => (
+                  <Card key={media.id}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2">
+                        {getMediaIcon(media.type)}
+                        <CardTitle className="text-base truncate">{media.name}</CardTitle>
                       </div>
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>{media.category}</span>
-                        <span>{media.duration}s</span>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="aspect-video bg-gray-100 rounded-md overflow-hidden">
+                          {media.type.startsWith('image/') ? (
+                            <img 
+                              src={media.url} 
+                              alt={media.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <video 
+                              src={media.url}
+                              className="w-full h-full object-cover"
+                              muted
+                              preload="metadata"
+                            />
+                          )}
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(media.category)}`}>
+                            {media.category}
+                          </span>
+                          <span>{media.duration}s</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleAssignMedia(media.id)}
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Assign to Display
+                        </Button>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleAssignMedia(media.id)}
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Assign to Display
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           ) : (
             <Card>
               <CardContent className="p-8 text-center">
