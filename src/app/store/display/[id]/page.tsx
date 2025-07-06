@@ -14,17 +14,17 @@ const mockDisplayData = {
     id: '1',
     name: 'Display Utama',
     mediaItems: [
-      { id: '1', name: 'Promo Ramadan', url: 'https://picsum.photos/1920/1080?random=1', type: 'image', category: 'Promotion' as const, duration: 5 },
-      { id: '2', name: 'Store Info', url: 'https://picsum.photos/1920/1080?random=2', type: 'image', category: 'Head Office' as const, duration: 7 },
-      { id: '3', name: 'Product Showcase', url: 'https://picsum.photos/1920/1080?random=3', type: 'image', category: 'Store' as const, duration: 6 },
+      { id: '1', name: 'Promo Ramadan', url: 'https://picsum.photos/1920/1080?random=1', type: 'image' as const, category: 'Promotion' as const, duration: 5 },
+      { id: '2', name: 'Store Info', url: 'https://picsum.photos/1920/1080?random=2', type: 'image' as const, category: 'Head Office' as const, duration: 7 },
+      { id: '3', name: 'Product Showcase', url: 'https://picsum.photos/1920/1080?random=3', type: 'image' as const, category: 'Store' as const, duration: 6 },
     ]
   },
   '2': {
     id: '2',
     name: 'Display Promo',
     mediaItems: [
-      { id: '4', name: 'Special Offer', url: 'https://picsum.photos/1920/1080?random=4', type: 'image', category: 'Promotion' as const, duration: 8 },
-      { id: '5', name: 'New Collection', url: 'https://picsum.photos/1920/1080?random=5', type: 'image', category: 'Store' as const, duration: 5 },
+      { id: '4', name: 'Special Offer', url: 'https://picsum.photos/1920/1080?random=4', type: 'image' as const, category: 'Promotion' as const, duration: 8 },
+      { id: '5', name: 'New Collection', url: 'https://picsum.photos/1920/1080?random=5', type: 'image' as const, category: 'Store' as const, duration: 5 },
     ]
   }
 };
@@ -49,14 +49,21 @@ export default function DisplayPage() {
     isLoading: boolean;
     downloadedCount: number;
     totalCount: number;
+    currentItem: string;
+    status: 'downloading' | 'complete' | 'error';
+    cacheSize: number;
     error?: string;
   }>({
     isLoading: true,
     downloadedCount: 0,
-    totalCount: 0
+    totalCount: 0,
+    currentItem: '',
+    status: 'downloading',
+    cacheSize: 0
   });
 
-  const display = mockDisplayData[displayId as keyof typeof mockDisplayData];
+  const [display, setDisplay] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
     if (!user || user.role !== 'store') {
@@ -64,11 +71,43 @@ export default function DisplayPage() {
       return;
     }
     
-    if (!display) {
-      router.push('/store');
-      return;
+    // Fetch display data from API
+    const fetchDisplayData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/displays/${displayId}?clientId=${user.clientId}`);
+        
+        if (response.ok) {
+          const displayData = await response.json();
+          setDisplay(displayData);
+        } else {
+          console.error('Failed to fetch display data');
+          router.push('/store');
+        }
+      } catch (error) {
+        console.error('Error fetching display data:', error);
+        router.push('/store');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user.clientId) {
+      fetchDisplayData();
     }
-  }, [user, display, router]);
+  }, [user, displayId, router]);
+
+  // Don't render if still loading or no display
+  if (loading || !display) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl">Loading display data...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Network status monitoring
   useEffect(() => {
@@ -85,73 +124,87 @@ export default function DisplayPage() {
     };
   }, []);
 
-  // Cache all media items on component mount
+  // Android TV optimized: Pre-cache all media items for offline playback
   useEffect(() => {
     if (!display?.mediaItems) return;
 
-    const cacheAllMedia = async () => {
+    const preCacheAllMedia = async () => {
       const totalItems = display.mediaItems.length;
-      setCacheStatus(prev => ({ ...prev, totalCount: totalItems, isLoading: true }));
+      setCacheStatus(prev => ({ 
+        ...prev, 
+        totalCount: totalItems, 
+        isLoading: true,
+        currentItem: 'Initializing...',
+        status: 'downloading'
+      }));
       
       try {
+        // Use optimized pre-caching for Android TV
+        const result = await mediaCacheManager.preCacheDisplayMedia(
+          display.mediaItems,
+          (completed, total, currentItem, status) => {
+            setCacheStatus(prev => ({
+              ...prev,
+              downloadedCount: completed,
+              currentItem,
+              status,
+              cacheSize: 0 // Will be updated below
+            }));
+          }
+        );
+
+        // Generate URLs for all media items
         const urlMapping: { [key: string]: string } = {};
-        
-        for (let i = 0; i < display.mediaItems.length; i++) {
-          const mediaItem = display.mediaItems[i];
+        for (const mediaItem of display.mediaItems) {
+          let cachedUrl = await mediaCacheManager.getCachedMediaUrl(mediaItem.id);
           
-          try {
-            // Try to get cached URL first
-            let cachedUrl = await mediaCacheManager.getCachedMediaUrl(mediaItem.id);
-            
-            if (!cachedUrl) {
-              // If not cached, cache it now
-              await mediaCacheManager.cacheMedia(mediaItem);
-              cachedUrl = await mediaCacheManager.getCachedMediaUrl(mediaItem.id);
-            }
-            
-            if (cachedUrl) {
-              urlMapping[mediaItem.id] = cachedUrl;
-            } else {
-              // Fallback to original URL if caching fails
-              urlMapping[mediaItem.id] = mediaItem.url;
-            }
-            
-            setCacheStatus(prev => ({ 
-              ...prev, 
-              downloadedCount: i + 1 
-            }));
-            
-          } catch (error) {
-            console.error(`Error caching media ${mediaItem.id}:`, error);
-            // Use original URL as fallback
+          if (cachedUrl) {
+            urlMapping[mediaItem.id] = cachedUrl;
+          } else {
+            // Fallback to original URL
             urlMapping[mediaItem.id] = mediaItem.url;
-            setCacheStatus(prev => ({ 
-              ...prev, 
-              downloadedCount: i + 1 
-            }));
+            console.warn(`Using fallback URL for ${mediaItem.name}`);
           }
         }
         
         setCachedUrls(urlMapping);
         setCacheStatus(prev => ({ 
           ...prev, 
-          isLoading: false 
+          isLoading: false,
+          currentItem: 'Cache complete!',
+          status: 'complete',
+          cacheSize: result.cacheSize
         }));
+        
+        // Log cache results for debugging
+        console.log(`Android TV Cache Results:`, {
+          totalCached: result.totalCached,
+          alreadyCached: result.alreadyCached,
+          failed: result.failed,
+          cacheSizeMB: Math.round(result.cacheSize / (1024 * 1024))
+        });
         
         // Auto-start slideshow after caching is complete
         setIsPlaying(true);
         
+        // Start background sync for future updates
+        setTimeout(() => {
+          mediaCacheManager.backgroundSync(display.mediaItems as MediaItem[]);
+        }, 5000);
+        
       } catch (error) {
-        console.error('Error during media caching:', error);
+        console.error('Error during media pre-caching:', error);
         setCacheStatus(prev => ({ 
           ...prev, 
           isLoading: false,
+          currentItem: 'Cache failed',
+          status: 'error',
           error: 'Failed to cache media. Running in online mode.'
         }));
         
         // Fallback: use original URLs
         const fallbackUrls: { [key: string]: string } = {};
-        display.mediaItems.forEach(item => {
+        display.mediaItems.forEach((item: any) => {
           fallbackUrls[item.id] = item.url;
         });
         setCachedUrls(fallbackUrls);
@@ -159,7 +212,7 @@ export default function DisplayPage() {
       }
     };
 
-    cacheAllMedia();
+    preCacheAllMedia();
   }, [display?.mediaItems]);
 
   const currentMedia = display?.mediaItems[currentIndex];
@@ -295,26 +348,58 @@ export default function DisplayPage() {
         )}
       </div>
 
-      {/* Loading overlay */}
+      {/* Android TV Loading overlay */}
       {cacheStatus.isLoading && (
         <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50">
-          <div className="text-center">
-            <Download className="w-20 h-20 mx-auto mb-6 tv-loading" />
-            <h2 className="text-3xl font-bold mb-4 tv-text-scale">Downloading Media for Offline Playback</h2>
-            <p className="text-xl opacity-75 mb-6">
-              {cacheStatus.downloadedCount} of {cacheStatus.totalCount} files cached
-            </p>
-            <div className="w-96 tv-progress mx-auto">
+          <div className="text-center max-w-4xl px-8">
+            <Download className={`w-20 h-20 mx-auto mb-6 tv-loading ${cacheStatus.status === 'downloading' ? 'animate-pulse' : ''}`} />
+            
+            <h2 className="text-4xl font-bold mb-4 tv-text-scale">
+              📺 Android TV - Offline Cache Setup
+            </h2>
+            
+            <div className="mb-6">
+              <p className="text-2xl opacity-75 mb-2">
+                {cacheStatus.downloadedCount} of {cacheStatus.totalCount} files processed
+              </p>
+              
+              {cacheStatus.currentItem && (
+                <p className="text-xl opacity-60 mb-4">
+                  {cacheStatus.status === 'downloading' && '⬇️ Downloading: '}
+                  {cacheStatus.status === 'complete' && '✅ Cached: '}
+                  {cacheStatus.status === 'error' && '❌ Failed: '}
+                  {cacheStatus.currentItem}
+                </p>
+              )}
+            </div>
+            
+            <div className="w-full max-w-2xl tv-progress mx-auto mb-6">
               <div 
-                className="tv-progress-fill cache-progress"
+                className="tv-progress-fill cache-progress transition-all duration-300"
                 style={{ 
                   width: `${cacheStatus.totalCount > 0 ? (cacheStatus.downloadedCount / cacheStatus.totalCount) * 100 : 0}%` 
                 }}
               />
             </div>
-            <p className="text-lg opacity-60 mt-4">
-              Media will be available offline after download completes
-            </p>
+            
+            {cacheStatus.cacheSize > 0 && (
+              <p className="text-lg opacity-60 mb-4">
+                💾 Cache Size: {Math.round(cacheStatus.cacheSize / (1024 * 1024))} MB
+              </p>
+            )}
+            
+            <div className="text-lg opacity-75 space-y-2">
+              <p>🚀 Media will be available offline after download completes</p>
+              <p>💡 This saves bandwidth and ensures smooth playback on Android TV</p>
+            </div>
+            
+            {cacheStatus.downloadedCount > 0 && cacheStatus.totalCount > 0 && (
+              <div className="mt-6 text-sm opacity-50">
+                <p>
+                  {Math.round((cacheStatus.downloadedCount / cacheStatus.totalCount) * 100)}% Complete
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -447,7 +532,7 @@ export default function DisplayPage() {
         {/* Slide indicators */}
         <div className="absolute bottom-48 left-1/2 transform -translate-x-1/2">
           <div className="flex gap-4">
-            {display.mediaItems.map((_, index) => (
+            {display.mediaItems.map((_: any, index: number) => (
               <button
                 key={index}
                 onClick={() => {

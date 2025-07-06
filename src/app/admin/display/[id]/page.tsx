@@ -35,9 +35,9 @@ export default function DisplayDetailPage() {
   const params = useParams();
   const displayId = params.id as string;
   
-  const [display, setDisplay] = useState(null);
-  const [client, setClient] = useState(null);
-  const [mediaItems, setMediaItems] = useState([]);
+  const [display, setDisplay] = useState<any>(null);
+  const [client, setClient] = useState<any>(null);
+  const [mediaItems, setMediaItems] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {

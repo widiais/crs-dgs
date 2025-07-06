@@ -42,7 +42,7 @@ const Select = React.forwardRef<
       <div ref={ref} className={cn("relative", className)} {...props}>
         {React.Children.map(children, (child) => {
           if (React.isValidElement(child) && child.type === SelectTrigger) {
-            return React.cloneElement(child, {
+            return React.cloneElement(child as React.ReactElement<any>, {
               onClick: () => setIsOpen(!isOpen)
             })
           }

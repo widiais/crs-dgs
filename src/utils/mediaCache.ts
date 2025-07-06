@@ -3,8 +3,8 @@ import { CachedMedia, MediaItem } from '@/types';
 const DB_NAME = 'DigitalSignageCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'media';
-const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days for Android TV
-const MAX_CACHE_SIZE = 500 * 1024 * 1024; // 500MB max cache size
+const CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days for Android TV (longer caching)
+const MAX_CACHE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB max cache size for Android TV
 
 class MediaCacheManager {
   private db: IDBDatabase | null = null;
@@ -249,6 +249,146 @@ class MediaCacheManager {
   async isMediaCached(mediaId: string): Promise<boolean> {
     const cached = await this.getCachedMedia(mediaId);
     return cached !== null;
+  }
+
+  // Android TV specific: Pre-cache all display media for offline playback
+  async preCacheDisplayMedia(
+    mediaItems: MediaItem[],
+    onProgress?: (completed: number, total: number, currentItem: string, status: 'downloading' | 'complete' | 'error') => void
+  ): Promise<{ 
+    totalCached: number, 
+    alreadyCached: number, 
+    failed: number,
+    cacheSize: number 
+  }> {
+    if (!this.db) await this.init();
+
+    let totalCached = 0;
+    let alreadyCached = 0;
+    let failed = 0;
+    let cacheSize = 0;
+
+    for (let i = 0; i < mediaItems.length; i++) {
+      const item = mediaItems[i];
+      
+      try {
+        onProgress?.(i, mediaItems.length, item.name, 'downloading');
+        
+        // Check if already cached
+        const existing = await this.getCachedMedia(item.id);
+        if (existing) {
+          alreadyCached++;
+          cacheSize += existing.size || 0;
+          onProgress?.(i + 1, mediaItems.length, item.name, 'complete');
+          continue;
+        }
+
+        // Cache the media
+        await this.cacheMedia(item);
+        totalCached++;
+        
+        // Get cached size
+        const cached = await this.getCachedMedia(item.id);
+        if (cached) {
+          cacheSize += cached.size || 0;
+        }
+        
+        onProgress?.(i + 1, mediaItems.length, item.name, 'complete');
+        
+      } catch (error) {
+        console.error(`Failed to cache ${item.name}:`, error);
+        failed++;
+        onProgress?.(i + 1, mediaItems.length, item.name, 'error');
+      }
+    }
+
+    return { totalCached, alreadyCached, failed, cacheSize };
+  }
+
+  // Background sync - update cache when online
+  async backgroundSync(mediaItems: MediaItem[]): Promise<void> {
+    if (!navigator.onLine) return;
+
+    const outdatedItems: MediaItem[] = [];
+    
+    // Check which items need updating
+    for (const item of mediaItems) {
+      const cached = await this.getCachedMedia(item.id);
+      if (!cached || (Date.now() - cached.timestamp > CACHE_DURATION / 2)) {
+        outdatedItems.push(item);
+      }
+    }
+
+    if (outdatedItems.length > 0) {
+      console.log(`Background sync: updating ${outdatedItems.length} media items`);
+      
+      // Update in background without blocking UI
+      this.cacheMediaBulk(outdatedItems, (completed, total, currentItem) => {
+        console.log(`Background sync: ${completed}/${total} - ${currentItem}`);
+      }).catch(error => {
+        console.warn('Background sync failed:', error);
+      });
+    }
+  }
+
+  // Force refresh all media (manual sync)
+  async forceSyncAllMedia(
+    mediaItems: MediaItem[],
+    onProgress?: (completed: number, total: number, currentItem: string) => void
+  ): Promise<void> {
+    // Clear existing cache for these items
+    for (const item of mediaItems) {
+      try {
+        if (!this.db) await this.init();
+        const transaction = this.db!.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        await new Promise<void>((resolve, reject) => {
+          const request = store.delete(item.id);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      } catch (error) {
+        console.warn(`Failed to clear cache for ${item.id}:`, error);
+      }
+    }
+
+    // Re-cache all items
+    await this.cacheMediaBulk(mediaItems, onProgress);
+  }
+
+  // Get storage usage info for Android TV
+  async getStorageInfo(): Promise<{
+    usedBytes: number;
+    availableBytes: number;
+    usedMB: number;
+    availableMB: number;
+    usagePercent: number;
+  }> {
+    try {
+      // Try to get storage quota (Android TV support)
+      const estimate = await (navigator.storage?.estimate?.() || Promise.resolve({ usage: 0, quota: MAX_CACHE_SIZE }));
+      
+      const usedBytes = estimate.usage || 0;
+      const availableBytes = (estimate.quota || MAX_CACHE_SIZE) - usedBytes;
+      
+      return {
+        usedBytes,
+        availableBytes,
+        usedMB: Math.round(usedBytes / (1024 * 1024)),
+        availableMB: Math.round(availableBytes / (1024 * 1024)),
+        usagePercent: Math.round((usedBytes / (estimate.quota || MAX_CACHE_SIZE)) * 100)
+      };
+    } catch (error) {
+      console.warn('Storage estimation not supported:', error);
+      const stats = await this.getCacheStats();
+      return {
+        usedBytes: stats.totalSize,
+        availableBytes: MAX_CACHE_SIZE - stats.totalSize,
+        usedMB: Math.round(stats.totalSize / (1024 * 1024)),
+        availableMB: Math.round((MAX_CACHE_SIZE - stats.totalSize) / (1024 * 1024)),
+        usagePercent: Math.round((stats.totalSize / MAX_CACHE_SIZE) * 100)
+      };
+    }
   }
 }
 

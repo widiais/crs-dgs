@@ -33,4 +33,5 @@ export interface CachedMedia {
   blob: Blob;
   timestamp: number;
   url: string;
+  size?: number;
 } 

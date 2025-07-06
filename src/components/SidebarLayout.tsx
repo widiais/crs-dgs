@@ -33,6 +33,8 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
   // Define routes where sidebar should be hidden
   const hideSidebarRoutes = [
+    '/',                  // Root/Welcome page
+    '/login',             // Login page
     '/store/display',     // Display slideshow pages
     '/client',            // Client display pages
   ];
