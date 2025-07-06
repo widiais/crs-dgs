@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Upload, Image, Video, Plus, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, Upload, Image, Video, Plus, X, Trash2, Edit, Save } from 'lucide-react';
 import { Display, MediaItem } from '@/types';
 
 export default function DisplayDetailPage() {
@@ -32,6 +32,14 @@ export default function DisplayDetailPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [editingDuration, setEditingDuration] = useState<string | null>(null);
   const [newDuration, setNewDuration] = useState('');
+  
+  // Display edit state
+  const [isEditingDisplay, setIsEditingDisplay] = useState(false);
+  const [editDisplayForm, setEditDisplayForm] = useState({
+    name: ''
+  });
+  const [updatingDisplay, setUpdatingDisplay] = useState(false);
+  const [deletingDisplay, setDeletingDisplay] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -212,6 +220,99 @@ export default function DisplayDetailPage() {
     }
   };
 
+  // Display edit functions
+  const handleEditDisplay = () => {
+    if (display) {
+      setEditDisplayForm({
+        name: display.name
+      });
+      setIsEditingDisplay(true);
+    }
+  };
+
+  const handleCancelEditDisplay = () => {
+    setIsEditingDisplay(false);
+    setEditDisplayForm({ name: '' });
+    setError('');
+  };
+
+  const handleUpdateDisplay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editDisplayForm.name.trim()) {
+      setError('Display name is required');
+      return;
+    }
+
+    setUpdatingDisplay(true);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/displays/${displayId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientId,
+          name: editDisplayForm.name.trim()
+        })
+      });
+
+      if (response.ok) {
+        const updatedDisplay = await response.json();
+        setDisplay(updatedDisplay);
+        setIsEditingDisplay(false);
+        setEditDisplayForm({ name: '' });
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to update display');
+      }
+    } catch (error) {
+      console.error('Error updating display:', error);
+      setError('Failed to update display');
+    } finally {
+      setUpdatingDisplay(false);
+    }
+  };
+
+  const handleDeleteDisplay = async () => {
+    const confirmMessage = `Apakah Anda yakin ingin menghapus display "${display?.name}"?
+
+⚠️ PERHATIAN: Ini akan menghapus:
+• Display "${display?.name}"
+• Semua media yang ter-assign ke display ini
+• Data ini tidak dapat dikembalikan
+
+Ketik "DELETE" untuk konfirmasi:`;
+
+    const userInput = prompt(confirmMessage);
+    if (userInput !== 'DELETE') {
+      return;
+    }
+
+    setDeletingDisplay(true);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/displays/${displayId}?clientId=${clientId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Redirect back to client page
+        router.push(`/admin/client/${clientId}`);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to delete display');
+      }
+    } catch (error) {
+      console.error('Error deleting display:', error);
+      setError('Failed to delete display');
+    } finally {
+      setDeletingDisplay(false);
+    }
+  };
+
   if (!user || user.role !== 'admin') {
     return null;
   }
@@ -271,19 +372,76 @@ export default function DisplayDetailPage() {
           </div>
           
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-bold">{display?.name}</h1>
-              <p className="text-gray-600">Manage media files for this display</p>
-              <div className="flex items-center gap-4 mt-2">
-                <span className="text-sm text-gray-500">
-                  {display?.mediaItems?.length || 0} media files assigned
-                </span>
-              </div>
+            <div className="flex-1">
+              {isEditingDisplay ? (
+                <form onSubmit={handleUpdateDisplay} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editDisplayForm.name}
+                      onChange={(e) => setEditDisplayForm({ name: e.target.value })}
+                      placeholder="Display name"
+                      className="text-2xl font-bold h-10 max-w-md"
+                      required
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={updatingDisplay}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Save className="w-4 h-4 mr-1" />
+                      {updatingDisplay ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelEditDisplay}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold">{display?.name}</h1>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleEditDisplay}
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDeleteDisplay}
+                      disabled={deletingDisplay}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      {deletingDisplay ? 'Deleting...' : 'Delete'}
+                    </Button>
+                  </div>
+                  <p className="text-gray-600">Manage media files for this display</p>
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="text-sm text-gray-500">
+                      {display?.mediaItems?.length || 0} media files assigned
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-            <Button onClick={() => setShowUploadForm(true)}>
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Media
-            </Button>
+            {!isEditingDisplay && (
+              <Button onClick={() => setShowUploadForm(true)}>
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Media
+              </Button>
+            )}
           </div>
         </div>
       </div>
