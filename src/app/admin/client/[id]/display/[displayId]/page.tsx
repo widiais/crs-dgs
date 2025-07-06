@@ -40,6 +40,9 @@ export default function DisplayDetailPage() {
   });
   const [updatingDisplay, setUpdatingDisplay] = useState(false);
   const [deletingDisplay, setDeletingDisplay] = useState(false);
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -344,7 +347,13 @@ Ketik "DELETE" untuk konfirmasi:`;
   }
 
   const assignedMediaIds = display.mediaItems?.map(media => media.id) || [];
-  const availableMedia = allMedia.filter(media => !assignedMediaIds.includes(media.id));
+  const availableMedia = allMedia
+    .filter(media => !assignedMediaIds.includes(media.id))
+    .filter(media => 
+      searchTerm === '' || 
+      media.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      media.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -796,7 +805,37 @@ Ketik "DELETE" untuk konfirmasi:`;
 
         {/* Available Media */}
         <div>
-          <h2 className="text-xl font-semibold mb-4">Available Media</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Available Media</h2>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Input
+                  placeholder="Search media by name or category..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-64"
+                />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                    onClick={() => setSearchTerm('')}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+          {searchTerm && (
+            <p className="text-sm text-gray-600 mb-4">
+              {availableMedia.length > 0 
+                ? `Found ${availableMedia.length} media file${availableMedia.length === 1 ? '' : 's'} matching "${searchTerm}"`
+                : `No media found matching "${searchTerm}"`
+              }
+            </p>
+          )}
           {availableMedia.length > 0 ? (
             <>
               {/* Table view for desktop */}
@@ -901,15 +940,33 @@ Ketik "DELETE" untuk konfirmasi:`;
           ) : (
             <Card>
               <CardContent className="p-8 text-center">
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No Available Media</h3>
-                <p className="text-gray-500 mb-4">
-                  All media files have been assigned to this display, or no media exists yet.
-                </p>
-                <Button onClick={() => setShowUploadForm(true)}>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload New Media
-                </Button>
+                {searchTerm ? (
+                  <>
+                    <Image className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Media Found</h3>
+                    <p className="text-gray-500 mb-4">
+                      No media files match your search for "{searchTerm}". Try a different search term.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setSearchTerm('')}
+                    >
+                      Clear Search
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Available Media</h3>
+                    <p className="text-gray-500 mb-4">
+                      All media files have been assigned to this display, or no media exists yet.
+                    </p>
+                    <Button onClick={() => setShowUploadForm(true)}>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload New Media
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}
