@@ -38,6 +38,43 @@ export async function PUT(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    const { name, duration } = body;
+
+    // Validate input
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return NextResponse.json({ error: 'Valid name is required' }, { status: 400 });
+    }
+
+    if (!duration || typeof duration !== 'number' || duration < 1 || duration > 300) {
+      return NextResponse.json({ error: 'Duration must be between 1 and 300 seconds' }, { status: 400 });
+    }
+
+    // Get current media
+    const currentMedia = await database.getMediaById(params.id);
+    if (!currentMedia) {
+      return NextResponse.json({ error: 'Media not found' }, { status: 404 });
+    }
+
+    // Update only name and duration
+    const updatedMedia = await database.updateMedia(params.id, {
+      ...currentMedia,
+      name: name.trim(),
+      duration: duration
+    });
+
+    return NextResponse.json(updatedMedia);
+  } catch (error) {
+    console.error('Error updating media:', error);
+    return NextResponse.json({ error: 'Failed to update media' }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }

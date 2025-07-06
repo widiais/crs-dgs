@@ -9,12 +9,21 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File;
     const name = formData.get('name') as string;
     const category = formData.get('category') as string;
-    const duration = formData.get('duration') as string;
+    const durationStr = formData.get('duration') as string;
 
-    if (!file || !name || !category || !duration) {
+    if (!file || !name || !category) {
       return NextResponse.json({ 
-        error: 'File, name, category, and duration are required' 
+        error: 'File, name, and category are required' 
       }, { status: 400 });
+    }
+
+    // Parse duration with default value of 60 seconds
+    let duration = 60; // Default duration
+    if (durationStr) {
+      const parsedDuration = parseInt(durationStr);
+      if (!isNaN(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 300) {
+        duration = parsedDuration;
+      }
     }
 
     // Validate file type - only JPG, PNG, MP4
@@ -65,13 +74,16 @@ export async function POST(request: NextRequest) {
     // Get download URL
     const downloadURL = await getDownloadURL(snapshot.ref);
 
-    // Save to database with full MIME type
+    // Convert MIME type to simplified type
+    const mediaType = file.type.startsWith('image/') ? 'image' : 'video';
+
+    // Save to database
     const newMedia = await database.createMedia({
       name,
       url: downloadURL,
-      type: file.type, // Store full MIME type
+      type: mediaType,
       category: category as 'Promotion' | 'Head Office' | 'Store',
-      duration: parseInt(duration)
+      duration: duration
     });
 
     return NextResponse.json(newMedia, { status: 201 });
