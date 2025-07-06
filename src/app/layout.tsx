@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -13,8 +13,13 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Digital Signage System',
   description: 'Sistem manajemen konten digital untuk Android TV',
-  viewport: 'width=device-width, initial-scale=1, user-scalable=no',
   manifest: '/manifest.json',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  userScalable: false,
   themeColor: '#2563eb',
 };
 
@@ -25,10 +30,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id" suppressHydrationWarning>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-        <link rel="manifest" href="/manifest.json" />
-      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
           <LoadingWrapper>

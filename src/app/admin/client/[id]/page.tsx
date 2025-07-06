@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Monitor, Plus, Settings, X } from 'lucide-react';
+import { ArrowLeft, Monitor, Plus, Settings, X, Edit, Trash2, Save } from 'lucide-react';
 import { Client, Display } from '@/types';
 
 export default function ClientDetailPage() {
@@ -23,6 +23,14 @@ export default function ClientDetailPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    pin: ''
+  });
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -123,6 +131,95 @@ export default function ClientDetailPage() {
     router.push(`/admin/client/${clientId}/display/${displayId}`);
   };
 
+  const handleEditClick = () => {
+    if (client) {
+      setEditForm({
+        name: client.name,
+        description: client.description,
+        pin: client.pin
+      });
+      setIsEditing(true);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditForm({ name: '', description: '', pin: '' });
+    setError('');
+  };
+
+  const handleUpdateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editForm.name.trim() || !editForm.description.trim() || !editForm.pin.trim()) {
+      setError('All fields are required');
+      return;
+    }
+
+    if (editForm.pin.length !== 6 || !/^\d+$/.test(editForm.pin)) {
+      setError('PIN must be exactly 6 digits');
+      return;
+    }
+
+    setUpdating(true);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/clients/${clientId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          description: editForm.description.trim(),
+          pin: editForm.pin.trim()
+        })
+      });
+
+      if (response.ok) {
+        const updatedClient = await response.json();
+        setClient(updatedClient);
+        setIsEditing(false);
+        setEditForm({ name: '', description: '', pin: '' });
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to update client');
+      }
+    } catch (error) {
+      console.error('Error updating client:', error);
+      setError('Failed to update client');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!confirm('Apakah Anda yakin ingin menghapus client ini? Semua display yang terkait juga akan dihapus.')) {
+      return;
+    }
+
+    setDeleting(true);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/clients/${clientId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        router.push('/admin');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to delete client');
+      }
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      setError('Failed to delete client');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (!user || user.role !== 'admin') {
     return null;
   }
@@ -169,22 +266,89 @@ export default function ClientDetailPage() {
           </div>
           
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-bold">{client.name}</h1>
-              <p className="text-gray-600">{client.description}</p>
-              <div className="flex items-center gap-4 mt-2">
-                <span className="text-sm text-gray-500">
-                  PIN: <code className="bg-gray-100 px-2 py-1 rounded">{client.pin}</code>
-                </span>
-                <span className="text-sm text-gray-500">
-                  {displays.length} display{displays.length !== 1 ? 's' : ''}
-                </span>
-              </div>
+            <div className="flex-1">
+              {isEditing ? (
+                <form onSubmit={handleUpdateClient} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="editName">Client Name *</Label>
+                    <Input
+                      id="editName"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                      placeholder="Client Name"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editDescription">Description *</Label>
+                    <Input
+                      id="editDescription"
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                      placeholder="Client Description"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editPin">PIN (6 digits) *</Label>
+                    <Input
+                      id="editPin"
+                      value={editForm.pin}
+                      onChange={(e) => setEditForm({...editForm, pin: e.target.value})}
+                      placeholder="123456"
+                      maxLength={6}
+                      pattern="[0-9]{6}"
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={updating}>
+                      <Save className="w-4 h-4 mr-2" />
+                      {updating ? 'Updating...' : 'Update Client'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div>
+                  <h1 className="text-2xl font-bold">{client.name}</h1>
+                  <p className="text-gray-600">{client.description}</p>
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="text-sm text-gray-500">
+                      PIN: <code className="bg-gray-100 px-2 py-1 rounded">{client.pin}</code>
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      {displays.length} display{displays.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-            <Button onClick={() => setShowCreateForm(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Display
-            </Button>
+            <div className="flex gap-2 ml-4">
+              {!isEditing && (
+                <>
+                  <Button variant="outline" onClick={handleEditClick}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Client
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleDeleteClient}
+                    disabled={deleting}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {deleting ? 'Deleting...' : 'Delete Client'}
+                  </Button>
+                  <Button onClick={() => setShowCreateForm(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Display
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

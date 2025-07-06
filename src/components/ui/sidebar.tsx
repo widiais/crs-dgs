@@ -18,6 +18,18 @@ interface SidebarProps {
   isMobile: boolean;
 }
 
+interface SubItem {
+  path: string;
+  label: string;
+}
+
+interface NavItem {
+  path: string;
+  label: string;
+  icon: React.ComponentType<any>;
+  subItems?: SubItem[];
+}
+
 export function Sidebar({ isOpen, onToggle, isMobile }: SidebarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -43,18 +55,27 @@ export function Sidebar({ isOpen, onToggle, isMobile }: SidebarProps) {
     return pathname.startsWith(path + '/');
   };
 
-  const adminNavItems = [
+  const adminNavItems: NavItem[] = [
     { path: '/admin', label: 'Dashboard', icon: Home },
     { path: '/admin/client', label: 'Client', icon: Users },
-    { path: '/admin/media', label: 'Media', icon: Image },
+    { 
+      path: '/admin/media', 
+      label: 'Media', 
+      icon: Image,
+      subItems: [
+        { path: '/admin/media/head-office', label: 'Head Office' },
+        { path: '/admin/media/store', label: 'Store' },
+        { path: '/admin/media/promotion', label: 'Promotion' }
+      ]
+    },
     { path: '/admin/setup', label: 'Setup', icon: Settings },
   ];
 
-  const storeNavItems = [
+  const storeNavItems: NavItem[] = [
     { path: '/store', label: 'Displays', icon: Monitor },
   ];
 
-  const publicNavItems = [
+  const publicNavItems: NavItem[] = [
     { path: '/', label: 'Home', icon: Home },
     { path: '/login', label: 'Login', icon: LogOut },
   ];
@@ -105,23 +126,52 @@ export function Sidebar({ isOpen, onToggle, isMobile }: SidebarProps) {
           {getNavItems().map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
+            const hasSubItems = item.subItems && item.subItems.length > 0;
+            
             return (
-              <Button
-                key={item.path}
-                variant="ghost"
-                className={`
-                  w-full justify-start px-4 py-3 h-auto
-                  text-left font-medium transition-all duration-200
-                  ${active 
-                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600 shadow-sm' 
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }
-                `}
-                onClick={() => router.push(item.path)}
-              >
-                <Icon className={`w-5 h-5 mr-3 ${active ? 'text-blue-600' : 'text-gray-500'}`} />
-                <span className="text-sm">{item.label}</span>
-              </Button>
+              <div key={item.path} className="space-y-1">
+                <Button
+                  variant="ghost"
+                  className={`
+                    w-full justify-start px-4 py-3 h-auto
+                    text-left font-medium transition-all duration-200
+                    ${active 
+                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600 shadow-sm' 
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    }
+                  `}
+                  onClick={() => router.push(item.path)}
+                >
+                  <Icon className={`w-5 h-5 mr-3 ${active ? 'text-blue-600' : 'text-gray-500'}`} />
+                  <span className="text-sm">{item.label}</span>
+                </Button>
+                
+                {/* Sub-items */}
+                {hasSubItems && item.subItems && (
+                  <div className="ml-4 space-y-1">
+                    {item.subItems.map((subItem) => {
+                      const subActive = isActive(subItem.path);
+                      return (
+                        <Button
+                          key={subItem.path}
+                          variant="ghost"
+                          className={`
+                            w-full justify-start px-4 py-2 h-auto
+                            text-left font-normal transition-all duration-200
+                            ${subActive 
+                              ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600 shadow-sm' 
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                            }
+                          `}
+                          onClick={() => router.push(subItem.path)}
+                        >
+                          <span className="text-sm">{subItem.label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

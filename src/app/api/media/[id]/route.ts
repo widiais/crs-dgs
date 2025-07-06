@@ -3,10 +3,11 @@ import { database } from '@/lib/db/database';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const media = await database.getMediaById(params.id);
+    const { id } = await params;
+    const media = await database.getMediaById(id);
     
     if (!media) {
       return NextResponse.json({ error: 'Media not found' }, { status: 404 });
@@ -21,11 +22,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    const updatedMedia = await database.updateMedia(params.id, body);
+    const updatedMedia = await database.updateMedia(id, body);
     
     if (!updatedMedia) {
       return NextResponse.json({ error: 'Media not found' }, { status: 404 });
@@ -40,9 +42,10 @@ export async function PUT(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { name, duration } = body;
 
@@ -56,13 +59,13 @@ export async function PATCH(
     }
 
     // Get current media
-    const currentMedia = await database.getMediaById(params.id);
+    const currentMedia = await database.getMediaById(id);
     if (!currentMedia) {
       return NextResponse.json({ error: 'Media not found' }, { status: 404 });
     }
 
     // Update only name and duration
-    const updatedMedia = await database.updateMedia(params.id, {
+    const updatedMedia = await database.updateMedia(id, {
       ...currentMedia,
       name: name.trim(),
       duration: duration
@@ -77,10 +80,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const deleted = await database.deleteMedia(params.id);
+    const { id } = await params;
+    const deleted = await database.deleteMedia(id);
     
     if (!deleted) {
       return NextResponse.json({ error: 'Media not found' }, { status: 404 });

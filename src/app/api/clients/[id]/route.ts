@@ -3,10 +3,11 @@ import { database } from '@/lib/db/database';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const client = await database.getClientById(params.id);
+    const { id } = await params;
+    const client = await database.getClientById(id);
     
     if (!client) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
@@ -21,11 +22,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    const updatedClient = await database.updateClient(params.id, body);
+    const updatedClient = await database.updateClient(id, body);
     
     if (!updatedClient) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
@@ -40,10 +42,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const deleted = await database.deleteClient(params.id);
+    const { id } = await params;
+    const deleted = await database.deleteClient(id);
     
     if (!deleted) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });

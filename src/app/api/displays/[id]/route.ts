@@ -3,10 +3,10 @@ import { database } from '@/lib/db/database';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const displayId = params.id;
+    const { id: displayId } = await params;
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get('clientId');
 
@@ -38,10 +38,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const displayId = params.id;
+    const { id: displayId } = await params;
     const body = await request.json();
     const { clientId, ...updates } = body;
 
@@ -73,10 +73,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const displayId = params.id;
+    const { id: displayId } = await params;
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get('clientId');
 
@@ -109,10 +109,10 @@ export async function DELETE(
 // Media assignment endpoints
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const displayId = params.id;
+    const { id: displayId } = await params;
     const body = await request.json();
     const { clientId, action, mediaId } = body;
 
