@@ -138,12 +138,7 @@ export default function LoginPage() {
             )}
           </CardContent>
         </Card>
-        
-        <div className="text-center mt-6">
-          <p className="text-sm text-gray-500">
-            Demo - Admin: admin@example.com / password | Store PIN: 123456
-          </p>
-        </div>
+      
       </div>
     </div>
   );

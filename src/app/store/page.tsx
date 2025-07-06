@@ -9,20 +9,23 @@ import { Monitor, Play } from 'lucide-react';
 import { Display } from '@/types';
 
 export default function StorePage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [displays, setDisplays] = useState<Display[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Wait for auth loading to complete
+    if (authLoading) return;
+    
     if (!user || user.role !== 'store') {
       router.push('/');
       return;
     }
 
     fetchDisplays();
-  }, [user, router]);
+  }, [user, router, authLoading]);
 
   const fetchDisplays = async () => {
     if (!user?.clientId) return;
@@ -49,6 +52,18 @@ export default function StorePage() {
     if (!user?.clientId) return;
     router.push(`/client/${user.clientId}/display/${displayId}`);
   };
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user || user.role !== 'store') {
     return null;

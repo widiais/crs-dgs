@@ -11,7 +11,7 @@ import { Plus, Users, Monitor, Settings, X, Edit } from 'lucide-react';
 import { Client } from '@/types';
 
 export default function ClientListPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,13 +25,16 @@ export default function ClientListPage() {
   });
 
   useEffect(() => {
+    // Wait for auth loading to complete
+    if (authLoading) return;
+    
     if (!user || user.role !== 'admin') {
       router.push('/login');
       return;
     }
 
     fetchClients();
-  }, [user, router]);
+  }, [user, router, authLoading]);
 
   const fetchClients = async () => {
     try {
@@ -112,6 +115,18 @@ export default function ClientListPage() {
   const handleClientClick = (clientId: string) => {
     router.push(`/admin/client/${clientId}`);
   };
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user || user.role !== 'admin') {
     return null;

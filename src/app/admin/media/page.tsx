@@ -9,7 +9,7 @@ import { FileText, Video, Upload, ArrowRight, Plus } from 'lucide-react';
 import { MediaItem } from '@/types';
 
 export default function MediaPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   
   const [mediaStats, setMediaStats] = useState({
@@ -21,13 +21,16 @@ export default function MediaPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait for auth loading to complete
+    if (authLoading) return;
+    
     if (!user || user.role !== 'admin') {
       router.push('/login');
       return;
     }
 
     fetchMediaStats();
-  }, [user, router]);
+  }, [user, router, authLoading]);
 
   const fetchMediaStats = async () => {
     try {
@@ -86,6 +89,18 @@ export default function MediaPage() {
       path: '/admin/media/promotion'
     }
   ];
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user || user.role !== 'admin') {
     return null;

@@ -35,12 +35,15 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   const hideSidebarRoutes = [
     '/',                  // Root/Welcome page
     '/login',             // Login page
-    '/store/display',     // Display slideshow pages
+    '/store',             // Store pages (including display slideshow)
     '/client',            // Client display pages
   ];
 
-  // Check if current route should hide sidebar
-  const shouldHideSidebar = hideSidebarRoutes.some(route => 
+  // Special check: Admin pages should always show sidebar
+  const isAdminPage = pathname.startsWith('/admin');
+  
+  // Check if current route should hide sidebar (but not for admin pages)
+  const shouldHideSidebar = !isAdminPage && hideSidebarRoutes.some(route => 
     pathname.startsWith(route)
   );
 
