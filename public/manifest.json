@@ -1,0 +1,23 @@
+{
+  "name": "Digital Signage System",
+  "short_name": "DigitalSignage",
+  "description": "Sistem manajemen konten digital untuk Android TV",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["productivity", "business"]
+} 
