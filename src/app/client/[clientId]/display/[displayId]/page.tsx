@@ -86,30 +86,47 @@ export default function DisplaySlideshowPage() {
     }
   }, [totalItems]);
 
-  // Start media timer for images
-  const startImageTimer = useCallback(() => {
-    if (!currentMedia || !isPlaying || !currentMedia.type.startsWith('image/')) return;
+  // Start media timer - Android TV optimized (works for both image and video)
+  const startMediaTimer = useCallback(() => {
+    if (!currentMedia || !isPlaying) return;
 
+    console.log(`📺 Starting timer for "${currentMedia.name}" - Duration: ${currentMedia.duration}s`);
     clearTimers();
     setProgress(0);
-    
-    const duration = currentMedia.duration * 1000; // Convert to milliseconds
     setTimeRemaining(currentMedia.duration);
+    
+    let startTime = Date.now();
 
-    // Progress timer (updates every 100ms)
-    progressTimerRef.current = setInterval(() => {
-      setProgress(prev => {
-        const newProgress = prev + (100 / duration) * 100;
-        return Math.min(newProgress, 100);
-      });
+    // Progress update function
+    const updateProgress = () => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const progressPercent = Math.min((elapsed / currentMedia.duration) * 100, 100);
+      const remaining = Math.max(currentMedia.duration - elapsed, 0);
       
-      setTimeRemaining(prev => Math.max(prev - 0.1, 0));
-    }, 100);
+      setProgress(progressPercent);
+      setTimeRemaining(remaining);
 
-    // Media completion timer
-    timerRef.current = setTimeout(() => {
-      nextSlide();
-    }, duration);
+      if (elapsed >= currentMedia.duration) {
+        console.log(`⏭️ Auto-advancing from "${currentMedia.name}" after ${elapsed.toFixed(1)}s`);
+        
+        // For video, pause and reset before advancing
+        if (currentMedia.type.startsWith('video/') && videoRef.current) {
+          videoRef.current.pause();
+          videoRef.current.currentTime = 0;
+        }
+        
+        nextSlide();
+        return;
+      }
+
+      // Continue updating if still playing
+      if (isPlaying) {
+        progressTimerRef.current = setTimeout(updateProgress, 100);
+      }
+    };
+
+    // Start progress updates
+    updateProgress();
   }, [currentMedia, isPlaying, clearTimers, nextSlide]);
 
   // Handle video events
@@ -119,35 +136,9 @@ export default function DisplaySlideshowPage() {
   }, []);
 
   const handleVideoPlay = useCallback(() => {
-    console.log('Video started playing');
-    if (currentMedia?.type.startsWith('video/')) {
-      setProgress(0);
-      setTimeRemaining(currentMedia.duration);
-      
-      // Set timer based on custom duration, not video length
-      clearTimers();
-      
-      // Progress timer for video
-      progressTimerRef.current = setInterval(() => {
-        setProgress(prev => {
-          const newProgress = prev + (100 / (currentMedia.duration * 1000)) * 100;
-          return Math.min(newProgress, 100);
-        });
-        
-        setTimeRemaining(prev => Math.max(prev - 0.1, 0));
-      }, 100);
-      
-      // Duration timer - will stop video and advance
-      timerRef.current = setTimeout(() => {
-        console.log('Duration timer triggered, stopping video and advancing');
-        if (videoRef.current) {
-          videoRef.current.pause();
-          videoRef.current.currentTime = 0;
-        }
-        nextSlide();
-      }, currentMedia.duration * 1000);
-    }
-  }, [currentMedia, clearTimers, nextSlide]);
+    console.log(`📺 Video started playing: "${currentMedia?.name}" - Duration: ${currentMedia?.duration}s`);
+    // Timer will be handled by the main media timer
+  }, [currentMedia]);
 
   // Auto-advance slideshow when media changes or play state changes
   useEffect(() => {
@@ -155,43 +146,32 @@ export default function DisplaySlideshowPage() {
     
     if (!currentMedia || totalItems === 0) return;
 
-    if (currentMedia.type.startsWith('image/')) {
-      console.log('Starting image timer for:', currentMedia.name);
-      startImageTimer();
-    } else if (currentMedia.type.startsWith('video/')) {
-      console.log('Setting up video for:', currentMedia.name);
-      clearTimers();
-      setProgress(0);
-      setTimeRemaining(currentMedia.duration);
-      
-      // Video will start its own timer when it plays
-      if (videoRef.current) {
-        videoRef.current.currentTime = 0;
-      }
+    // Start timer for any media type
+    if (isPlaying) {
+      startMediaTimer();
     }
 
     return () => {
       clearTimers();
     };
-  }, [currentIndex, currentMedia, totalItems, startImageTimer, clearTimers]);
+  }, [currentIndex, currentMedia, totalItems, startMediaTimer, clearTimers, isPlaying]);
 
   // Handle play/pause state changes
   useEffect(() => {
     if (!currentMedia) return;
 
     if (isPlaying) {
-      if (currentMedia.type.startsWith('image/')) {
-        startImageTimer();
-      } else if (currentMedia.type.startsWith('video/') && videoRef.current) {
+      if (currentMedia.type.startsWith('video/') && videoRef.current) {
         videoRef.current.play().catch(console.error);
       }
+      startMediaTimer();
     } else {
       clearTimers();
       if (currentMedia.type.startsWith('video/') && videoRef.current) {
         videoRef.current.pause();
       }
     }
-  }, [isPlaying, currentMedia, startImageTimer, clearTimers]);
+  }, [isPlaying, currentMedia, startMediaTimer, clearTimers]);
 
   const togglePlayPause = useCallback(() => {
     setIsPlaying(prev => !prev);

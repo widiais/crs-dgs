@@ -219,28 +219,61 @@ export default function DisplayPage() {
   const totalItems = display?.mediaItems.length || 0;
   const currentMediaUrl = currentMedia ? cachedUrls[currentMedia.id] || currentMedia.url : '';
 
-  // Auto-advance slideshow
-  useEffect(() => {
-    if (!isPlaying || !currentMedia || cacheStatus.isLoading) return;
-
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        const newProgress = prev + (100 / (currentMedia.duration * 10));
-        if (newProgress >= 100) {
-          nextSlide();
-          return 0;
-        }
-        return newProgress;
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isPlaying, currentIndex, currentMedia, cacheStatus.isLoading]);
-
+  // Navigation functions
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % totalItems);
     setProgress(0);
   }, [totalItems]);
+
+  // Auto-advance slideshow - Optimized for Android TV
+  useEffect(() => {
+    if (!isPlaying || !currentMedia || cacheStatus.isLoading) return;
+
+    console.log(`📺 Starting timer for "${currentMedia.name}" - Duration: ${currentMedia.duration}s`);
+
+    // Reset progress when slide changes
+    setProgress(0);
+
+    let progressTimer: NodeJS.Timeout;
+    let startTime = Date.now();
+
+    // Progress update interval (smoother progress bar)
+    const updateProgress = () => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const progressPercent = Math.min((elapsed / currentMedia.duration) * 100, 100);
+      
+      setProgress(progressPercent);
+
+      if (elapsed >= currentMedia.duration) {
+        console.log(`⏭️ Auto-advancing from "${currentMedia.name}" after ${elapsed.toFixed(1)}s`);
+        
+        // For video, pause and reset before advancing
+        if (currentMedia.type.startsWith('video/')) {
+          const videoElements = document.querySelectorAll('video');
+          videoElements.forEach(video => {
+            video.pause();
+            video.currentTime = 0;
+          });
+        }
+        
+        nextSlide();
+        return;
+      }
+
+      // Continue updating progress if still playing
+      if (isPlaying && !cacheStatus.isLoading) {
+        progressTimer = setTimeout(updateProgress, 100);
+      }
+    };
+
+    // Start progress updates
+    updateProgress();
+
+    // Cleanup function
+    return () => {
+      if (progressTimer) clearTimeout(progressTimer);
+    };
+  }, [isPlaying, currentIndex, currentMedia, cacheStatus.isLoading, nextSlide]);
 
   const prevSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev - 1 + totalItems) % totalItems);
